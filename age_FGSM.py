@@ -16,7 +16,7 @@ from tensorflow import keras
 import os
 
 #Importing dataset
-dataset = pickle.load(open("D:/Szakdolgozat/10_11/Data/dataset", "rb" ))
+dataset = pickle.load(open("/content/drive/MyDrive/Szakdolgozat/Data/dataset", "rb" ))
 
 #Creating array for storage of internal values
 predictions_asd = []
@@ -33,16 +33,16 @@ forTest = [1325, 84]
 
 #Importing classifiers by ids
 for index in dataset.keys():
-    path = "D:/Szakdolgozat/10_11/Data/Classifiers/classifier_id_{}". format(index)
+    path = "/content/drive/MyDrive/Szakdolgozat/Classifiers/classifier_id_{}". format(index)
     name = "classifier{}". format(index)
     name = pickle.load(open(path, 'rb'))
     classifiers['{}' .format(index)] = name
 
 # Load the tensorflow model
-model = keras.models.load_model('D:/Szakdolgozat/Neural_Networks3/DNN_race')
+model = keras.models.load_model('/content/drive/MyDrive/Szakdolgozat/Neural_Network_Age/DNN_race')
 model.trainable = False
 
-with open("D:/Szakdolgozat/SVM_AGE/classifier", 'rb') as pickle_file:
+with open("/content/drive/MyDrive/Szakdolgozat/SVM_AGE/classifier", 'rb') as pickle_file:
     model_SVM = pickle.load(pickle_file)
 
 #Defining loss object
@@ -76,7 +76,7 @@ prediction_40_60 = [0.0, 0.0, 1.0, 0.0]
 prediction_60_80 = [0.0, 0.0, 0.0, 1.0]
 
 #Setting epsilon values
-epsilons_race = [0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.012, 0.014]
+epsilons_race = [0.005, 0.0052, 0.0054, 0.0056, 0.0058, 0.006, 0.0062, 0.0064, 0.0066, 0.0068, 0.007]
 
 #Tracking person number
 person_number = 0
@@ -123,7 +123,7 @@ for key in dataset.keys():
     svmResults['{}'. format(key)] = {}
 
 #Iterating through persons by keys, for test we use forTest array wit dedicated keys (only 1325 for now)
-for key in forTest:
+for key in dataset.keys():
     
     svmResultsByKey = {}
     for eps in epsilons_race:
@@ -210,7 +210,6 @@ for key in forTest:
             #Predicting sex for advex
             predictedRace = int(model.predict_classes([embModified]))
             prediction_advex_array.append(predictedRace)
-            
             svmPredict = model_SVM.predict(embModified)
             svmResultsByKey["{}". format(eps)].append(svmPredict)
                 
@@ -222,6 +221,15 @@ for key in forTest:
                 predictedRace = "40_60"
             if predictedRace == 3:
                 predictedRace = "60_80"
+
+            if (svmPredict == 1):
+                svmPredict = "0_20"
+            if (svmPredict == 2):
+                svmPredict = "20_40"
+            if svmPredict == 3:
+                svmPredict = "40_60"
+            if svmPredict == 4:
+                svmPredict = "60_80"
                 
                 
             print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["age"], " SVM: ", svmPredict, " target label ", target_label_string_new)
@@ -234,14 +242,14 @@ for key in forTest:
             classifier_emb_array.append(classifier_emb)
             classifier_advex_emb = int(classifiers["{}" .format(key)].predict(embModified))
             classifier_advex_emb_array.append(classifier_advex_emb)
-        
-            if(predictedRace != target_label):
-                if svmPredict != target_label_string_new:
-                    transability.append(1)
-                else:
-                    transability.append(0)
-        
+
             print("Classification for emb: ", classifier_emb, " Classification for advex emb: ", classifier_advex_emb)
+            
+            if(predictedRace != target_label_string_new):
+                if svmPredict != target_label_string_new:
+                  transability.append(1)
+                else:
+                  transability.append(0)
             
             if(predictedRace == "0_20"):
                 if(target_label_string_new != "0_20"):
@@ -311,6 +319,7 @@ SVM_final = (transability[transability == 1].size) / (transability.size)
 
 results_excel.write(3, 4, SVM_final)
 
+
 for eps in epsilons_race:
     results_excel.write(0, cntForEps+13, epsilons_race[cntForEps])
     cntForEps = cntForEps + 1
@@ -376,12 +385,12 @@ for key in forTest:
                         finalSVM["{}". format(eps)].append(0)
 
 
-with os.scandir('D:/Szakdolgozat/Excel/FGSM/Age') as entries:
+with os.scandir('/content/drive/MyDrive/Szakdolgozat/Results/Final/FGSM/Age') as entries:
     cnt = 1
     for entry in entries:
         cnt = cnt + 1
     
-nameSave = "D:\Szakdolgozat\Excel\FGSM\Age\Results_{}". format(cnt) + ".xls"
+nameSave = "/content/drive/MyDrive/Szakdolgozat/Results/Final/FGSM/Age/Results_{}". format(cnt) + ".xls"
 wb.save(nameSave)
 
 justTestw = []

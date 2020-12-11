@@ -16,14 +16,14 @@ from tensorflow import keras
 import os
 
 #Importing dataset
-dataset = pickle.load(open("D:/Szakdolgozat/10_11/Data/dataset", "rb" ))
+dataset = pickle.load(open("/content/drive/MyDrive/Szakdolgozat/Data/dataset", "rb" ))
 
 #Creating array for storage of internal values
 predictions_asd = []
 sign = []
 grad = []
 classifiers = {}
-iterationNumber = 50
+iterationNumber = 1
 loss_stored = []
 
 # Iterative or non-iterative method (0 = iterative, 1 = non-iterative)
@@ -35,16 +35,16 @@ forTest = [84]
 
 #Importing classifiers by ids
 for index in dataset.keys():
-    path = "D:/Szakdolgozat/10_11/Data/Classifiers/classifier_id_{}". format(index)
+    path = "/content/drive/MyDrive/Szakdolgozat/Classifiers/classifier_id_{}". format(index)
     name = "classifier{}". format(index)
     name = pickle.load(open(path, 'rb'))
     classifiers['{}' .format(index)] = name
 
 # Load the tensorflow model
-model = keras.models.load_model('D:/Szakdolgozat/Neural_Networks_sex/DNN_race')
+model = keras.models.load_model('/content/drive/MyDrive/Szakdolgozat/Neural_Networks_Sex/DNN_race')
 model.trainable = False
 
-with open("D:/Szakdolgozat/SVM_SEX/classifier", 'rb') as pickle_file:
+with open("/content/drive/MyDrive/Szakdolgozat/SVM_SEX/classifier", 'rb') as pickle_file:
     model_SVM = pickle.load(pickle_file)
 
 #Defining loss object
@@ -72,11 +72,11 @@ def create_adversarial_pattern(input_embedding, target_label):
 # ID = 1
 
 #Creating OneHotEncoding target labels
-prediction_female = [1.0, 0.0]
-prediction_male = [0.0, 1.0]
+prediction_female = [0.0, 1.0]
+prediction_male = [1.0, 0.0]
 
 #Setting epsilon values
-epsilons_sex = [0.005, 0.006, 0.000052, 0.007, 0.008, 0.009, 0.01, 0.012, 0.014]
+epsilons_sex = [0.0, 0.0075, 0.0076, 0.0077, 0.0078, 0.0079, 0.008, 0.0081, 0.0082, 0.0083, 0.0084, 0.0085]
 
 #Tracking person number
 person_number = 0
@@ -112,7 +112,7 @@ for key in dataset.keys():
     svmResults['{}'. format(key)] = {}
 
 #Iterating through persons by keys, for test we use forTest array wit dedicated keys (only 1325 for now)
-for key in forTest:
+for key in dataset.keys():
     
     sign.append(key)
     
@@ -186,16 +186,16 @@ for key in forTest:
             svmResultsByKey["{}". format(eps)].append(svmPredict)
                 
             if (predictedRace == 0):
-                predictedRace = "f"
+                predictedRace = "m"
             if (predictedRace == 1):
-                predictedRace = "m"     
-                
+                predictedRace = "f"
+
             if (svmPredict == 1):
-                svmPredict = "f"
+                svmPredict = "m"
             if (svmPredict == 2):
-                svmPredict = "m" 
+                svmPredict = "f"                     
                 
-            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["sex"], "svm: ", svmPredict)
+            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["sex"])
                 
             #Store face embedding
             face_embeddings.append(embModified[0])
@@ -208,11 +208,11 @@ for key in forTest:
         
             print("Classification for emb: ", classifier_emb, " Classification for advex emb: ", classifier_advex_emb)
             
-            # if(predictedRace != target_label_string_new):
-            #     if svmPredict != target_label_string_new:
-            #         transability.append(1)
-            #     else:
-            #         transability.append(0)
+            if(predictedRace != target_label_string_new):
+                if svmPredict != target_label_string_new:
+                    transability.append(1)
+                else:
+                    transability.append(0)
             
             if(predictedRace == "f"):
                 if(target_label_string_new != "f"):
@@ -226,7 +226,7 @@ for key in forTest:
                     array_male_suc.append(0)
 
             
-            if(target_label_string_new == predictedRace):
+            if(target_label_string_new != predictedRace):
                 predSuccessful[eps].append(1)
                             
                 if(classifier_advex_emb == 1):
@@ -299,66 +299,11 @@ for eps in epsilons_sex:
     lineCounter = lineCounter + 1
 
 
-with os.scandir('D:/Szakdolgozat/Excel/FGSM/Sex') as entries:
+with os.scandir('/content/drive/MyDrive/Szakdolgozat/Results/Final/FGSM/Sex') as entries:
     cnt = 1
     for entry in entries:
         cnt = cnt + 1
     
-nameSave = "D:\Szakdolgozat\Excel\FGSM\Sex\Results_{}". format(cnt) + ".xls"
+nameSave = "//content/drive/MyDrive/Szakdolgozat/Results/Final/FGSM/Sex/Results_{}". format(cnt) + ".xls"
 wb.save(nameSave)
 
-justTestw = []
-justTestb = []
-justTesta = []
-justTesti = []
-
-raceSplit = []
-
-for key in dataset.keys():
-    for emb in dataset[key]["embeddings"]:
-            emb = np.asarray(emb)
-            emb = emb.reshape(128, 1).T
-            res = model.predict_classes(emb)
-            
-            raceSplit.append(dataset[key]["race"])
-            
-            if(res == 0):
-                res = "white"
-                if(dataset[key]["race"] == "white"):
-                    justTestw.append(1)
-                else:
-                    justTestw.append(0)
-            if(res == 1):
-                res = "black"
-                if(dataset[key]["race"] == "black"):
-                    justTestb.append(1)
-                else:
-                    justTestb.append(0)
-            if(res == 2):
-                res = "asian"
-                if(dataset[key]["race"] == "asian"):
-                    justTesta.append(1)
-                else:
-                    justTesta.append(0)
-            if(res == 3):
-                res = "indian"
-                if(dataset[key]["race"] == "indian"):
-                    justTesti.append(1)
-                else:
-                    justTesti.append(0)
-                
-            
-            
-            print("truth: ", dataset[key]["race"], " prediction: ", res)
-            
-justTestw = np.asarray(justTestw)
-print(justTestw[justTestw == 1].size / justTestw.size)
-
-justTestb = np.asarray(justTestb)
-print(justTestb[justTestb == 1].size / justTestb.size)
-
-justTesti = np.asarray(justTesti)
-print(justTesti[justTesti == 1].size / justTesti.size)
-
-justTesta = np.asarray(justTesta)
-print(justTesta[justTesta == 1].size / justTesta.size)

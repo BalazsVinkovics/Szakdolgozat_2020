@@ -14,7 +14,7 @@ from xlwt import Workbook
 import os
 
 #Importing dataset
-dataset = pickle.load(open("D:/Szakdolgozat/10_11/Data/dataset", "rb" ))
+dataset = pickle.load(open("/content/drive/MyDrive/Szakdolgozat/Data/dataset", "rb" ))
 
 #Creating array for storage of internal values
 predictions_asd = []
@@ -26,23 +26,18 @@ transability = []
 
 forTest = [84]
 
-#Importing demographic data classifiers
-sex_model = pickle.load(open("D:/Szakdolgozat/10_11/Models/Sex_model.pickle", 'rb'))
-age_model = pickle.load(open("D:/Szakdolgozat/10_11/Models/Age_20_model.pickle", 'rb'))
-race_model = pickle.load(open("D:/Szakdolgozat/10_11/Models/Race_model.pickle", 'rb'))
-
 #Importing classifiers by ids
 for index in dataset.keys():
-    path = "D:/Szakdolgozat/10_11/Data/Classifiers/classifier_id_{}". format(index)
+    path = "/content/drive/MyDrive/Szakdolgozat/Classifiers/classifier_id_{}". format(index)
     name = "classifier{}". format(index)
     name = pickle.load(open(path, 'rb'))
     classifiers['{}' .format(index)] = name
 
-with open("D:/Szakdolgozat/SVM_RACE/classifier", 'rb') as pickle_file:
+with open("/content/drive/MyDrive/Szakdolgozat/SVM_RACE/classifier", 'rb') as pickle_file:
     model_SVM = pickle.load(pickle_file)
 
 # Load the tensorflow model
-model = keras.models.load_model('D:/Szakdolgozat/Neural_Networks2_v2/DNN_race')
+model = keras.models.load_model('/content/drive/MyDrive/Szakdolgozat/Neural_Network_Race/DNN_race')
 model.trainable = False
 
 #Defining loss object
@@ -74,7 +69,7 @@ prediction_asian = [0, 0, 1, 0]
 prediction_indian = [0, 0, 0, 1]
 
 #Declaring epsilon values
-epsilons_race = [0.007, 0.0071, 0.0072, 0.0073, 0.0074, 0.0075, 0.0076, 0.0077, 0.0078, 0.0079, 0.008, 0.0081, 0.0082, 0.0083, 0.0084, 0.0085, 0.0086, 0.0087, 0.0088, 0.0089, 0.009]
+epsilons_race = [0.0, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.012, 0.014]
 
 #Tracking pesron number
 person_number = 0
@@ -156,9 +151,9 @@ for key in dataset.keys():
             advex_emb = eps*perturbations + emb
             
             #Predicting sex for advex
-            predictedRace = int(model.predict_classes([advex_emb]))
+            predictedRace = int(model.predict_classes(advex_emb))
             prediction_advex_array.append(predictedRace)
-            svmPredict = model_SVM.predict([advex_emb])
+            svmPredict = model_SVM.predict(advex_emb)
             svmResultsByKey["{}". format(eps)].append(svmPredict)
             
             if (predictedRace == 0):
@@ -169,9 +164,18 @@ for key in dataset.keys():
                 predictedRace = "asian"
             if predictedRace == 3:
                 predictedRace = "indian"
+
+            if (svmPredict == 1):
+                svmPredict = "white"
+            if (svmPredict == 2):
+                svmPredict = "black"
+            if svmPredict == 3:
+                svmPredict = "asian"
+            if svmPredict == 4:
+                svmPredict = "indian" 
             
             
-            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["race"])
+            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["race"], "SVM:    ", svmPredict)
             
             if(predictedRace != input_label_string):
                 if svmPredict != input_label_string:
@@ -222,7 +226,12 @@ results_excel.write(0, 0, 'Epsilon')
 results_excel.write(0, 1, 'Successful classification')
 results_excel.write(0, 2, 'Successful identification')
 results_excel.write(0, cntForEps+12, 'Epsilon values')
+results_excel.write(2, 4, 'SVM')
 
+transability = np.asarray(transability)
+SVM_final = (transability[transability == 1].size) / (transability.size)
+
+results_excel.write(3, 4, SVM_final)
 
 for eps in epsilons_race:
     results_excel.write(0, cntForEps+13, epsilons_race[cntForEps])
@@ -252,10 +261,10 @@ for eps in epsilons_race:
     results_excel.write(lineCounter, 2, resultOfIdentification)
     lineCounter = lineCounter + 1
 
-with os.scandir('D:/Szakdolgozat/Excel/FGSM/Race/') as entries:
+with os.scandir('/content/drive/MyDrive/Szakdolgozat/Results/Final/FGSM/Race/') as entries:
     cnt = 1
     for entry in entries:
         cnt = cnt + 1
 
-nameSave = "D:\Szakdolgozat\Excel\FGSM\Race\Results_{}". format(cnt) + ".xls"
+nameSave = "/content/drive/MyDrive/Szakdolgozat/Results/Final/FGSM/Race/Results_{}". format(cnt) + ".xls"
 wb.save(nameSave)

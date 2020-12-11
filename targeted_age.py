@@ -16,31 +16,33 @@ from tensorflow import keras
 import os
 
 #Importing dataset
-dataset = pickle.load(open("D:/Szakdolgozat/10_11/Data/dataset", "rb" ))
+dataset = pickle.load(open("/content/drive/MyDrive/Szakdolgozat/Data/dataset", "rb" ))
 
 #Creating array for storage of internal values
 predictions_asd = []
 sign = []
 grad = []
 classifiers = {}
-iterationNumber = 1
+iterationNumber = 50
 loss_stored = []
 
+transability = []
+
 #Dataset keys for test
-forTest = [1325, 84]
+forTest = [1364]
 
 #Importing classifiers by ids
 for index in dataset.keys():
-    path = "D:/Szakdolgozat/10_11/Data/Classifiers/classifier_id_{}". format(index)
+    path = "/content/drive/MyDrive/Szakdolgozat/Classifiers/classifier_id_{}". format(index)
     name = "classifier{}". format(index)
     name = pickle.load(open(path, 'rb'))
     classifiers['{}' .format(index)] = name
 
 # Load the tensorflow model
-model = keras.models.load_model('D:/Szakdolgozat/Neural_Networks3/DNN_race')
+model = keras.models.load_model('/content/drive/MyDrive/Szakdolgozat/Neural_Network_Age/DNN_race')
 model.trainable = False
 
-with open("D:/Szakdolgozat/SVM_AGE/classifier", 'rb') as pickle_file:
+with open("/content/drive/MyDrive/Szakdolgozat/SVM_AGE/classifier", 'rb') as pickle_file:
     model_SVM = pickle.load(pickle_file)
 
 #Defining loss object
@@ -52,16 +54,12 @@ def create_adversarial_pattern(input_embedding, target_label):
     with tf.GradientTape() as tape:
         tape.watch(input_embedding)
         prediction = model(input_embedding)
-        predictions_asd.append(prediction.numpy())
         loss = loss_object(target_label, prediction)
-        loss_stored.append(loss.numpy())
         
     # Get the gradients of the loss w.r.t to the input image.
     gradient = tape.gradient(loss, input_embedding)
-    grad.append(gradient.numpy())
     # Get the sign of the gradients to create the perturbation
     signed_grad = tf.sign(-gradient)
-    sign.append(signed_grad.numpy())
     return signed_grad
 
 #Choosing datakey (= person)
@@ -74,7 +72,7 @@ prediction_40_60 = [0.0, 0.0, 1.0, 0.0]
 prediction_60_80 = [0.0, 0.0, 0.0, 1.0]
 
 #Setting epsilon values
-epsilons_race = [0.000008, 0.000009, 0.00001, 0.000011, 0.00024, 0.00025, 0.00026, 0.00027, 0.00028, 0.00029, 0.0003, 0.00031, 0.00032, 0.00033, 0.00034, 0.00035, 0.00036, 0.00037, 0.00038, 0.00039, 0.0004]
+epsilons_race = [0.0001, 0.00015, 0.0002, 0.00025, 0.0003, 0.00035, 0.0004, 0.00045, 0.0005]
 #Tracking person number
 person_number = 0
 
@@ -105,31 +103,19 @@ for eps in epsilons_race:
 per_array = []
 embs_array = []
 
-target_0_20 = "20_40"
-target_20_40 = "0_20"
-target_40_60 = "60_80"
-target_60_80 = "40_60"
-
-flag = 1
-
 svmResults = {}
-
-
 
 for key in dataset.keys():
     svmResults['{}'. format(key)] = {}
 
 #Iterating through persons by keys, for test we use forTest array wit dedicated keys (only 1325 for now)
-for key in forTest:
+for key in dataset.keys():
     
+    sign.append(key)
+
     svmResultsByKey = {}
     for eps in epsilons_race:
         svmResultsByKey['{}'. format(eps)] = []
-    
-    age_min = int(dataset[key]["age"].split(",")[0])
-    age_max = int(dataset[key]["age"].split(",")[1])
-    
-    sign.append(key)
     
     #Creating arrays for data storage, tracking embedding number
     classifier_emb_array = []
@@ -141,27 +127,30 @@ for key in forTest:
     #Creating target label with initial value
     input_label_variable = [0.0, 0.0, 0.0, 0.0]
     
+    age_min = int(dataset[key]["age"].split(",")[0])
+    age_max = int(dataset[key]["age"].split(",")[1])
+    
     #Setting target label due to race
     if 0 <= age_min:
         if age_max <= 20:
             input_label_variable = prediction_20_40
-            target_label_string_new = target_0_20
-            dataset[key]["age"] = "0_20"
+            target_label_string_new = "20_40"
+            dataset[key]["age"] ="0_20"
     if 20 <= age_min:
         if age_max <= 40:
             input_label_variable = prediction_0_20
-            target_label_string_new = target_20_40
-            dataset[key]["age"] = "20_40"
+            target_label_string_new = "0_20"
+            dataset[key]["age"] ="20_40"
     if 40 <= age_min:
         if age_max <= 60:
             input_label_variable = prediction_60_80
-            target_label_string_new = target_40_60
-            dataset[key]["age"] = "40_60"
+            target_label_string_new = "60_80"
+            dataset[key]["age"] ="40_60"
     if 60 <= age_min:
         if age_max <= 80:
             input_label_variable = prediction_40_60
-            target_label_string_new = target_60_80
-            dataset[key]["age"] = "60_80"
+            target_label_string_new = "40_60"
+            dataset[key]["age"] ="60_80"
     
     #Iterating through the chosen person's embeddings
     for emb in dataset[key]["embeddings"]:
@@ -169,10 +158,8 @@ for key in forTest:
         embForPrediction = np.asarray(emb)
         embForPrediction = embForPrediction.reshape(128, 1).T
         pred = model.predict(embForPrediction)
-        grad.append(pred)
         print("\n\n", pred, "\n\n")
         
-        sign.append(emb)
         # embs_array.append(emb)
         
         print("\n\n{}. people" .format(person_number))
@@ -191,12 +178,10 @@ for key in forTest:
             #Setting embModified to initiale value (actual embedding)
             embModified = emb
             embs_array.append(embModified.numpy())
-            sign.append(eps)
             
             for numberOfIteration in range(iterationNumber):
                 #Creating perturbation
                 perturbations = create_adversarial_pattern(embModified, target_label)
-                per_array.append((perturbations).numpy())
                 #Creating adversarial example
                 embModified = embModified + (eps * perturbations)
                 embs_array.append(embModified.numpy())
@@ -219,9 +204,18 @@ for key in forTest:
                 predictedRace = "40_60"
             if predictedRace == 3:
                 predictedRace = "60_80"
+
+            if (svmPredict == 1):
+                svmPredict = "0_20"
+            if (svmPredict == 2):
+                svmPredict = "20_40"
+            if svmPredict == 3:
+                svmPredict = "40_60"
+            if svmPredict == 4:
+                svmPredict = "60_80"
                 
                 
-            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["age"], " SVM: ", svmPredict, " target label ", target_label_string_new)
+            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["age"])
                 
             #Store face embedding
             face_embeddings.append(embModified[0])
@@ -234,6 +228,12 @@ for key in forTest:
         
             print("Classification for emb: ", classifier_emb, " Classification for advex emb: ", classifier_advex_emb)
             
+            if(predictedRace == target_label_string_new):
+                if svmPredict != dataset[key]["age"]:
+                  transability.append(1)
+                else:
+                  transability.append(0)
+
             if(predictedRace == "0_20"):
                 if(target_label_string_new == "0_20"):
                     array_white_suc.append(1)
@@ -266,8 +266,8 @@ for key in forTest:
                 predSuccessful[eps].append(0)
 
     
-    #Calculating error of identification due advex  
-    svmResults["{}". format(key)] = svmResultsByKey
+    #Calculating error of identification due advex
+    svmResults["{}". format(key)] = svmResultsByKey       
     classifier_advex_emb_array = np.asarray(classifier_advex_emb_array)
     classifier_emb_array = np.asarray(classifier_emb_array)
     classification_error_advex = (classifier_advex_emb_array[classifier_advex_emb_array == 1].size) / (classifier_emb_array[classifier_emb_array == 1].size)
@@ -293,8 +293,6 @@ results_excel.write(0, 2, 'Successful identification')
 results_excel.write(0, cntForEps+8, 'Iteration number')
 results_excel.write(0, cntForEps+9, iterationNumber)
 results_excel.write(0, cntForEps+12, 'Epsilon values')
-results_excel.write(0, 5, 'Ground truth')
-results_excel.write(0, 6, 'Target label')
 
 results_excel.write(1, 5, "0_20")
 results_excel.write(2, 5, "20_40")
@@ -305,6 +303,12 @@ results_excel.write(1, 6, "20_40")
 results_excel.write(2, 6, "0_20")
 results_excel.write(3, 6, "60_80")
 results_excel.write(4, 6, "40_60")
+results_excel.write(2, 4, 'SVM')
+
+transability = np.asarray(transability)
+SVM_final = (transability[transability == 1].size) / (transability.size)
+
+results_excel.write(3, 4, SVM_final)
 
 
 for eps in epsilons_race:
@@ -318,10 +322,7 @@ for eps in epsilons_race:
     array_ActClass = classSuccessful[eps]
     array_ActClass = np.asarray(array_ActClass)
     print("successfull classicication for eps: ", eps)
-    if (array_ActClass.size != 0):
-        resultOfClassification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
-    else:
-        resultOfClassification = 0
+    resultOfClassification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
     print(resultOfClassification)
     results_excel.write(lineCounter, 0, eps)
     results_excel.write(lineCounter, 1, resultOfClassification)
@@ -333,58 +334,25 @@ for eps in epsilons_race:
     array_ActClass = predSuccessful[eps]
     array_ActClass = np.asarray(array_ActClass)
     print("successfull prediction for eps: ", eps)
-    if(array_ActClass.size != 0):
-        resultOfIdentification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
-    else:
-        resultOfIdentification = 0
+    resultOfIdentification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
     print(resultOfIdentification)
     results_excel.write(lineCounter, 2, resultOfIdentification)
     lineCounter = lineCounter + 1
 
-finalSVM = {}
-for eps in epsilons_race:
-    finalSVM['{}'. format(eps)] = []
-
-for key in forTest:
-    array = svmResults["{}". format(key)]
-    for embs in array:
-        for eps in epsilons_race:
-            for emb in embs:
-                if(dataset[key]["age"] == "0_20"):
-                    if(emb[0] == 2):
-                        finalSVM["{}". format(eps)].append(1)
-                    else:
-                        finalSVM["{}". format(eps)].append(0)
-                if(dataset[key]["age"] == "20_40"):
-                    if(emb[0] == 1):
-                        finalSVM["{}". format(eps)].append(1)
-                    else:
-                        finalSVM["{}". format(eps)].append(0)
-                if(dataset[key]["age"] == "40_60"):
-                    if(emb[0] == 4):
-                        finalSVM["{}". format(eps)].append(1)
-                    else:
-                        finalSVM["{}". format(eps)].append(0)
-                if(dataset[key]["age"] == "60_80"):
-                    if(emb[0] == 3):
-                        finalSVM["{}". format(eps)].append(1)
-                    else:
-                        finalSVM["{}". format(eps)].append(0)
-
-with os.scandir('D:/Szakdolgozat/Excel/IFGSM/Age') as entries:
+with os.scandir('/content/drive/MyDrive/Szakdolgozat/Results/Final/IFGSM/Age') as entries:
     cnt = 1
     for entry in entries:
         cnt = cnt + 1
-    
-nameSave = "D:\Szakdolgozat\Excel\Age\IFGSM\Results_{}". format(cnt) + ".xls"
+
+nameSave = "/content/drive/MyDrive/Szakdolgozat/Results/Final/IFGSM/Age/Results_{}". format(cnt) + ".xls"
 wb.save(nameSave)
 
-justTestw = []
-justTestb = []
-justTesta = []
-justTesti = []
+# justTestw = []
+# justTestb = []
+# justTesta = []
+# justTesti = []
 
-raceSplit = []
+# raceSplit = []
 
 # for key in dataset.keys():
 #     for emb in dataset[key]["embeddings"]:
@@ -392,36 +360,36 @@ raceSplit = []
 #             emb = emb.reshape(128, 1).T
 #             res = model.predict_classes(emb)
             
-#             raceSplit.append(dataset[key]["age"])
+#             raceSplit.append(dataset[key]["race"])
             
 #             if(res == 0):
-#                 res = "0_20"
-#                 if(dataset[key]["age"] == "0_20"):
+#                 res = "white"
+#                 if(dataset[key]["race"] == "white"):
 #                     justTestw.append(1)
 #                 else:
 #                     justTestw.append(0)
 #             if(res == 1):
-#                 res = "20_40"
-#                 if(dataset[key]["age"] == "20_40"):
+#                 res = "black"
+#                 if(dataset[key]["race"] == "black"):
 #                     justTestb.append(1)
 #                 else:
 #                     justTestb.append(0)
 #             if(res == 2):
-#                 res = "40_60"
-#                 if(dataset[key]["age"] == "40_60"):
+#                 res = "asian"
+#                 if(dataset[key]["race"] == "asian"):
 #                     justTesta.append(1)
 #                 else:
 #                     justTesta.append(0)
 #             if(res == 3):
-#                 res = "60_80"
-#                 if(dataset[key]["age"] == "60_80"):
+#                 res = "indian"
+#                 if(dataset[key]["race"] == "indian"):
 #                     justTesti.append(1)
 #                 else:
 #                     justTesti.append(0)
                 
             
             
-#             print("truth: ", dataset[key]["age"], " prediction: ", res)
+#             print("truth: ", dataset[key]["race"], " prediction: ", res)
             
 # justTestw = np.asarray(justTestw)
 # print(justTestw[justTestw == 1].size / justTestw.size)

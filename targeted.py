@@ -16,28 +16,33 @@ from tensorflow import keras
 import os
 
 #Importing dataset
-dataset = pickle.load(open("D:/Szakdolgozat/10_11/Data/dataset", "rb" ))
+dataset = pickle.load(open("/content/drive/MyDrive/Szakdolgozat/Data/dataset", "rb" ))
 
 #Creating array for storage of internal values
 predictions_asd = []
 sign = []
 grad = []
 classifiers = {}
-iterationNumber = 50
+iterationNumber = 5
 loss_stored = []
 
+transability = []
+
 #Dataset keys for test
-forTest = [1364, 1325]
+forTest = [1364, 84]
+
+with open("/content/drive/MyDrive/Szakdolgozat/SVM_RACE/classifier", 'rb') as pickle_file:
+    model_SVM = pickle.load(pickle_file)
 
 #Importing classifiers by ids
 for index in dataset.keys():
-    path = "D:/Szakdolgozat/10_11/Data/Classifiers/classifier_id_{}". format(index)
+    path = "/content/drive/MyDrive/Szakdolgozat/Classifiers/classifier_id_{}". format(index)
     name = "classifier{}". format(index)
     name = pickle.load(open(path, 'rb'))
     classifiers['{}' .format(index)] = name
 
 # Load the tensorflow model
-model = keras.models.load_model('D:/Szakdolgozat/Neural_Networks2/DNN_race')
+model = keras.models.load_model('/content/drive/MyDrive/Szakdolgozat/Neural_Network_Race/DNN_race/')
 model.trainable = False
 
 #Defining loss object
@@ -71,7 +76,7 @@ prediction_asian = [0.0, 0.0, 1.0, 0.0]
 prediction_indian = [0.0, 0.0, 0.0, 1.0]
 
 #Setting epsilon values
-epsilons_race = [0.0002, 0.00021, 0.00022, 0.00023, 0.00024, 0.00025, 0.00026, 0.00027, 0.00028, 0.00029, 0.0003, 0.00031, 0.00032, 0.00033, 0.00034, 0.00035, 0.00036, 0.00037, 0.00038, 0.00039, 0.0004]
+epsilons_race = [0.0005, 0.0006, 0.0007, 0.0008, 0.0009, 0.001, 0.0012, 0.0014]
 
 #Tracking person number
 person_number = 0
@@ -103,11 +108,20 @@ for eps in epsilons_race:
 per_array = []
 embs_array = []
 
+svmResults = {}
+
+for key in dataset.keys():
+    svmResults['{}'. format(key)] = {}
+
 #Iterating through persons by keys, for test we use forTest array wit dedicated keys (only 1325 for now)
-for key in forTest:
+for key in dataset.keys():
     
     sign.append(key)
     
+    svmResultsByKey = {}
+    for eps in epsilons_race:
+        svmResultsByKey['{}'. format(eps)] = []
+
     #Creating arrays for data storage, tracking embedding number
     classifier_emb_array = []
     classifier_advex_emb_array = []
@@ -138,6 +152,7 @@ for key in forTest:
         embForPrediction = np.asarray(emb)
         embForPrediction = embForPrediction.reshape(128, 1).T
         pred = model.predict(embForPrediction)
+        grad.append(pred)
         print("\n\n", pred, "\n\n")
         
         sign.append(emb)
@@ -176,6 +191,8 @@ for key in forTest:
             #Predicting sex for advex
             predictedRace = int(model.predict_classes([embModified]))
             prediction_advex_array.append(predictedRace)
+            svmPredict = model_SVM.predict(embModified)
+            svmResultsByKey["{}". format(eps)].append(svmPredict)
                 
             if (predictedRace == 0):
                 predictedRace = "white"
@@ -185,9 +202,25 @@ for key in forTest:
                 predictedRace = "asian"
             if predictedRace == 3:
                 predictedRace = "indian"
+
+            if (svmPredict == 1):
+                svmPredict = "white"
+            if (svmPredict == 2):
+                svmPredict = "black"
+            if svmPredict == 3:
+                svmPredict = "asian"
+            if svmPredict == 4:
+                svmPredict = "indian" 
                 
                 
-            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["race"])
+            print(eps, ": ", "predicted race for emb:", predictedRace, "ground truth:", dataset[key]["race"], "SVM:    ", svmPredict)
+            
+            if(predictedRace == target_label_string_new):
+                if svmPredict != dataset[key]["race"]:
+                    transability.append(1)
+                else:
+                    transability.append(0)
+            
                 
             #Store face embedding
             face_embeddings.append(embModified[0])
@@ -254,11 +287,18 @@ wb = Workbook()
 results_excel = wb.add_sheet('Results')
 results_excel.write(0, 0, 'Epsilon')
 results_excel.write(0, 1, 'Successful classification')
-results_excel.write(0, 2, 'Successful identification')
+results_excel.write(0, 2, 'Successful prediction')
 results_excel.write(0, cntForEps+8, 'Iteration number')
 results_excel.write(0, cntForEps+9, iterationNumber)
 results_excel.write(0, cntForEps+12, 'Epsilon values')
+results_excel.write(2, 4, 'SVM')
 
+transability = np.asarray(transability)
+if (transability.size != 0):
+  SVM_final = (transability[transability == 1].size) / (transability.size)
+else:
+  SVM_final = 0
+results_excel.write(3, 4, SVM_final)
 
 for eps in epsilons_race:
     results_excel.write(0, cntForEps+13, epsilons_race[cntForEps])
@@ -271,7 +311,10 @@ for eps in epsilons_race:
     array_ActClass = classSuccessful[eps]
     array_ActClass = np.asarray(array_ActClass)
     print("successfull classicication for eps: ", eps)
-    resultOfClassification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
+    if (array_ActClass.size != 0):
+        resultOfClassification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
+    else:
+        resultOfClassification = 0
     print(resultOfClassification)
     results_excel.write(lineCounter, 0, eps)
     results_excel.write(lineCounter, 1, resultOfClassification)
@@ -283,17 +326,20 @@ for eps in epsilons_race:
     array_ActClass = predSuccessful[eps]
     array_ActClass = np.asarray(array_ActClass)
     print("successfull prediction for eps: ", eps)
-    resultOfIdentification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
+    if(array_ActClass.size != 0):
+        resultOfIdentification = array_ActClass[array_ActClass == 1].size / array_ActClass.size
+    else:
+        resultOfIdentification = 0
     print(resultOfIdentification)
     results_excel.write(lineCounter, 2, resultOfIdentification)
     lineCounter = lineCounter + 1
 
-with os.scandir('D:/Szakdolgozat/Excel/IFGSM/') as entries:
+with os.scandir('/content/drive/MyDrive/Szakdolgozat/Results/Final/IFGSM/Race') as entries:
     cnt = 1
     for entry in entries:
         cnt = cnt + 1
 
-nameSave = "D:\Szakdolgozat\Excel\IFGSM\Results_{}". format(cnt) + ".xls"
+nameSave = "/content/drive/MyDrive/Szakdolgozat/Results/Final/IFGSM/Race/Results_{}". format(cnt) + ".xls"
 wb.save(nameSave)
 
 # justTestw = []
